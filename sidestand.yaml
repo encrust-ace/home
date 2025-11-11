@@ -65,6 +65,24 @@ text_sensor:
 
 # ========== LIGHT ==========
 light:
+  - platform: partition
+    name: "Light 1 - Segment 1"
+    segments: 
+     - id: strip_light_1
+       from: 0
+       to: 28
+  - platform: partition
+    name: "Light 1 - Segment 2"
+    segments: 
+     - id: strip_light_1
+       from: 29
+       to: 57
+  - platform: partition
+    name: "Light 1 - Segment 3"
+    segments: 
+     - id: strip_light_1
+       from: 58
+       to: 86
   - platform: neopixelbus
     type: GRB
     variant: WS2812X
@@ -90,6 +108,24 @@ light:
       - wled:
           name: "UDP Sync"
 
+  - platform: partition
+    name: "Light 2 - Segment 1"
+    segments: 
+     - id: strip_light_2
+       from: 0
+       to: 28
+  - platform: partition
+    name: "Light 2 - Segment 2"
+    segments: 
+     - id: strip_light_2
+       from: 29
+       to: 57
+  - platform: partition
+    name: "Light 2 - Segment 3"
+    segments: 
+     - id: strip_light_2
+       from: 58
+       to: 86
   - platform: neopixelbus
     type: GRB
     variant: WS2812X

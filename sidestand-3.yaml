@@ -83,7 +83,6 @@ light:
       - id: strip_light
         from: 58
         to: 86
-      
   - platform: neopixelbus
     type: GRB
     variant: WS2812X
