@@ -1,0 +1,214 @@
+# common/effects.yaml
+
+# Standard Effects
+- addressable_rainbow:
+- addressable_twinkle:
+
+# Shared Gradient Effect
+- addressable_lambda:
+    name: "Gradient"
+    update_interval: 16ms
+    lambda: |-
+      // We use substitutions or standard IDs here. 
+      // Ensure your main device file has partitions with these IDs.
+      auto tv = id(light_top).remote_values;
+      auto mv = id(light_mid).remote_values;
+      auto bv = id(light_bot).remote_values;
+
+      Color c1 = Color(tv.get_red()*255, tv.get_green()*255, tv.get_blue()*255);
+      Color c2 = Color(mv.get_red()*255, mv.get_green()*255, mv.get_blue()*255);
+      Color c3 = Color(bv.get_red()*255, bv.get_green()*255, bv.get_blue()*255);
+
+      uint32_t speed = (uint32_t)id(effect_speed).state;
+      uint32_t global_offset = ((uint64_t)millis() * speed) >> 6; 
+      
+      int num_leds = it.size();
+      uint32_t step = 768 / num_leds; 
+
+      for (int i = 0; i < num_leds; i++) {
+          uint16_t pos = (global_offset + (i * step)) % 768;
+          uint8_t section = pos >> 8;
+          uint8_t blend = pos & 0xFF;
+          uint8_t inv = 255 - blend;
+          Color target;
+          if (section == 0) target = Color((c1.r * inv + c2.r * blend) >> 8, (c1.g * inv + c2.g * blend) >> 8, (c1.b * inv + c2.b * blend) >> 8);
+          else if (section == 1) target = Color((c2.r * inv + c3.r * blend) >> 8, (c2.g * inv + c3.g * blend) >> 8, (c2.b * inv + c3.b * blend) >> 8);
+          else target = Color((c3.r * inv + c1.r * blend) >> 8, (c3.g * inv + c1.g * blend) >> 8, (c3.b * inv + c1.b * blend) >> 8);
+          it[i] = target;
+      }
+
+# Shared Lightning Effect
+- addressable_lambda:
+    name: "Lightning"
+    update_interval: 16ms
+    lambda: |-
+      // === 1. MEMORY ALLOCATION (Static & Permanent) ===
+      static uint32_t next_storm_time = 0;
+      static uint32_t bolt_end_time = 0;
+      
+      // States: 0=Idle, 1=Growing(Crawler), 2=Burning(Flicker/Decay)
+      static uint8_t state = 0; 
+      static uint8_t bolt_type = 0; // 0=Sheet, 1=Fork, 2=Crawler
+      
+      // Geometry
+      static int start_led = 0;
+      static int end_led = 0;
+      static int current_head = 0;
+      static uint8_t growth_dir = 1; // 1=Up, 0=Down
+      
+      // Physics
+      static uint16_t intensity = 0; 
+      
+      // Cache System
+      uint32_t now = millis();
+      int STRIP_LEN = it.size();
+
+      // === 2. FRESH START WATCHDOG ===
+      // Forces a strike immediately if the effect was just selected.
+      static uint32_t last_run = 0;
+      if (now - last_run > 2000) {
+          next_storm_time = now + 100;
+          state = 0;
+      }
+      last_run = now;
+
+      // === 3. IDLE STATE (The Silence) ===
+      if (state == 0) {
+          if (now > next_storm_time) {
+              // == PROBABILITY ENGINE ==
+              uint8_t chance = random_uint32() % 100;
+              
+              // 50% Sheet (Background), 30% Fork (Violent), 20% Crawler (Travel)
+              if (chance < 50) bolt_type = 0;
+              else if (chance < 80) bolt_type = 1;
+              else bolt_type = 2;
+
+              intensity = 255; // Ignite
+              bolt_end_time = now + 300 + (random_uint32() % 600); // Burn duration
+
+              // == GEOMETRY ENGINE ==
+              if (bolt_type == 0) { 
+                  // SHEET: Whole strip
+                  start_led = 0; end_led = STRIP_LEN - 1;
+                  state = 2; // Skip growth, burn immediately
+              } 
+              else if (bolt_type == 1) { 
+                  // FORK: Concentrated Cluster
+                  int len = 10 + (random_uint32() % (STRIP_LEN / 3));
+                  start_led = random_uint32() % (STRIP_LEN - len);
+                  end_led = start_led + len;
+                  state = 2; // Skip growth
+              } 
+              else { 
+                  // CRAWLER: Travel path
+                  if (random_uint32() & 1) { // Fast Coin Flip
+                      start_led = 0; 
+                      end_led = 20 + (random_uint32() % (STRIP_LEN - 20));
+                      growth_dir = 1;
+                  } else {
+                      start_led = STRIP_LEN - 1; 
+                      end_led = random_uint32() % (STRIP_LEN - 20);
+                      growth_dir = 0;
+                  }
+                  current_head = start_led;
+                  state = 1; // Enter Growth Mode
+              }
+          } else {
+              // Save CPU: If waiting, ensure black and exit.
+              it.all() = Color::BLACK;
+              return;
+          }
+      }
+
+      // === 4. CRAWLER STATE (The Movement) ===
+      if (state == 1) {
+          // Move 8 pixels per frame (120ms to cross 87 LEDs)
+          int step = 8;
+          
+          if (growth_dir == 1) {
+              current_head += step;
+              if (current_head >= end_led) { current_head = end_led; state = 2; }
+          } else {
+              current_head -= step;
+              if (current_head <= end_led) { current_head = end_led; state = 2; }
+          }
+          
+          // Draw the growing "Zipper"
+          it.all() = Color::BLACK;
+          int s = (growth_dir == 1) ? start_led : current_head;
+          int e = (growth_dir == 1) ? current_head : start_led;
+          
+          // Safety Clamps (Critical for stability)
+          if (s < 0) s = 0; if (e >= STRIP_LEN) e = STRIP_LEN - 1;
+          
+          for (int i = s; i <= e; i++) it[i] = Color(255,255,255);
+          
+          return; // Skip decay logic until fully grown
+      }
+
+      // === 5. BURN STATE (The Thermal Decay) ===
+      if (state == 2) {
+          
+          // A. INTEGER DECAY
+          // Reduces brightness by ~15% every frame (16ms)
+          intensity = (intensity * 220) >> 8;
+
+          // B. RE-STRIKE CHAOS
+          // Simulates energy surges while the channel is open
+          if (now < bolt_end_time) {
+               // 30% chance per frame to spike energy
+               if ((random_uint32() % 100) < 30) intensity = 255; 
+          } else {
+               // Bolt is dead, fade to black
+               if (intensity < 4) {
+                   state = 0;
+                   // Next storm: 2.0s to 20.0s gap
+                   next_storm_time = now + 2000 + (random_uint32() % 18000);
+                   intensity = 0;
+               }
+          }
+
+          // C. COLOR RENDERING
+          // Cold Electric White (R200, G200, B255) scaled by intensity
+          uint8_t r = (200 * intensity) >> 8;
+          uint8_t g = (200 * intensity) >> 8;
+          uint8_t b = intensity;
+          Color c = Color(r, g, b);
+
+          it.all() = Color::BLACK;
+
+          if (bolt_type == 0) {
+              // SHEET: Draw with cloud turbulence (jitter)
+              for (int i = 0; i < STRIP_LEN; i++) {
+                  // Every 3rd LED is dimmer to simulate depth
+                  uint8_t noise = (i % 3 == 0) ? 40 : 0;
+                  // Subtraction with saturation safety
+                  uint8_t lr = (r > noise) ? r - noise : 0;
+                  uint8_t lg = (g > noise) ? g - noise : 0;
+                  uint8_t lb = (b > noise) ? b - noise : 0;
+                  it[i] = Color(lr, lg, lb);
+              }
+          } else {
+              // FORK & CRAWLER: Solid beam
+              int s = (start_led < end_led) ? start_led : end_led;
+              int e = (start_led < end_led) ? end_led : start_led;
+              
+              // Safety Clamps
+              if (s < 0) s = 0; if (e >= STRIP_LEN) e = STRIP_LEN - 1;
+
+              for (int i = s; i <= e; i++) it[i] = c;
+
+              // D. ATMOSPHERIC GLOW
+              // If the bolt is bright, light the rest of the strip faintly
+              if (intensity > 60) {
+                  // Dim Blue/Purple Glow
+                  Color glow = Color((10 * intensity) >> 8, (10 * intensity) >> 8, (40 * intensity) >> 8);
+                  for (int k = 0; k < STRIP_LEN; k++) {
+                      if (k < s || k > e) it[k] = glow;
+                  }
+              }
+          }
+      }
+
+- wled:
+    name: "Wled"
