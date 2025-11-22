@@ -5,7 +5,7 @@ esphome:
 esp32:
   board: esp32-c3-devkitm-1
   framework:
-    type: arduino
+    type: esp-idf
     
 bluetooth_proxy:
   active: true
@@ -14,7 +14,6 @@ logger:
 api:
 ota:
   - platform: esphome
-wled:
 
 wifi:
   ssid: !secret wifi_ssid
@@ -85,14 +84,19 @@ text_sensor:
 # ========== LIGHT ==========
 
 light:
-  - platform: neopixelbus
-    variant: ws2812x
+  - platform: esp32_rmt_led_strip
+    rgb_order: GRB
     pin: GPIO02
     num_leds: 18
+    chipset: WS2812
     id: strip_light
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF
-    effects: !include common/effects.yaml
+    effects: 
+      - addressable_rainbow:
+      - addressable_twinkle:
+      - !include strip_effects/gradient.yaml
+      - !include strip_effects/lightning.yaml
 
   # 2. LOGICAL PARTITIONS
   - platform: partition

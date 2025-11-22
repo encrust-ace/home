@@ -1,0 +1,135 @@
+addressable_lambda:
+  name: "Lightning"
+  update_interval: 16ms
+  lambda: |-
+      // === 1. MEMORY ALLOCATION ===
+      static uint32_t next_storm_time = 0;
+      static uint32_t bolt_end_time = 0;
+      
+      // States: 0=Idle, 1=Growing, 2=Burning
+      static uint8_t state = 0; 
+      static uint8_t bolt_type = 0;
+      
+      static int start_led = 0;
+      static int end_led = 0;
+      static int current_head = 0;
+      static uint8_t growth_dir = 1;
+      
+      static uint16_t intensity = 0; 
+      
+      uint32_t now = millis();
+      int STRIP_LEN = it.size();
+
+      static uint32_t last_run = 0;
+      if (now - last_run > 2000) {
+          next_storm_time = now + 100;
+          state = 0;
+      }
+      last_run = now;
+
+      // === 3. IDLE STATE ===
+      if (state == 0) {
+          if (now > next_storm_time) {
+              uint8_t chance = random_uint32() % 100;
+              
+              if (chance < 50) bolt_type = 0;
+              else if (chance < 80) bolt_type = 1;
+              else bolt_type = 2;
+
+              intensity = 255; 
+              bolt_end_time = now + 300 + (random_uint32() % 600); 
+
+              if (bolt_type == 0) { 
+                  start_led = 0; end_led = STRIP_LEN - 1;
+                  state = 2; 
+              } 
+              else if (bolt_type == 1) { 
+                  int len = 10 + (random_uint32() % (STRIP_LEN / 3));
+                  start_led = random_uint32() % (STRIP_LEN - len);
+                  end_led = start_led + len;
+                  state = 2; 
+              } 
+              else { 
+                  if (random_uint32() & 1) { 
+                      start_led = 0; 
+                      end_led = 20 + (random_uint32() % (STRIP_LEN - 20));
+                      growth_dir = 1;
+                  } else {
+                      start_led = STRIP_LEN - 1; 
+                      end_led = random_uint32() % (STRIP_LEN - 20);
+                      growth_dir = 0;
+                  }
+                  current_head = start_led;
+                  state = 1; 
+              }
+          } else {
+              it.all() = Color::BLACK;
+              return;
+          }
+      }
+
+      // === 4. CRAWLER STATE ===
+      if (state == 1) {
+          int step = 8;
+          if (growth_dir == 1) {
+              current_head += step;
+              if (current_head >= end_led) { current_head = end_led; state = 2; }
+          } else {
+              current_head -= step;
+              if (current_head <= end_led) { current_head = end_led; state = 2; }
+          }
+          
+          it.all() = Color::BLACK;
+          int s = (growth_dir == 1) ? start_led : current_head;
+          int e = (growth_dir == 1) ? current_head : start_led;
+          
+          if (s < 0) s = 0; if (e >= STRIP_LEN) e = STRIP_LEN - 1;
+          
+          for (int i = s; i <= e; i++) it[i] = Color(255,255,255);
+          return; 
+      }
+
+      // === 5. BURN STATE ===
+      if (state == 2) {
+          intensity = (intensity * 220) >> 8;
+
+          if (now < bolt_end_time) {
+              if ((random_uint32() % 100) < 30) intensity = 255; 
+          } else {
+              if (intensity < 4) {
+                  state = 0;
+                  next_storm_time = now + 2000 + (random_uint32() % 18000);
+                  intensity = 0;
+              }
+          }
+
+          uint8_t r = (200 * intensity) >> 8;
+          uint8_t g = (200 * intensity) >> 8;
+          uint8_t b = intensity;
+          Color c = Color(r, g, b);
+
+          it.all() = Color::BLACK;
+
+          if (bolt_type == 0) {
+              for (int i = 0; i < STRIP_LEN; i++) {
+                  uint8_t noise = (i % 3 == 0) ? 40 : 0;
+                  uint8_t lr = (r > noise) ? r - noise : 0;
+                  uint8_t lg = (g > noise) ? g - noise : 0;
+                  uint8_t lb = (b > noise) ? b - noise : 0;
+                  it[i] = Color(lr, lg, lb);
+              }
+          } else {
+              int s = (start_led < end_led) ? start_led : end_led;
+              int e = (start_led < end_led) ? end_led : start_led;
+              if (s < 0) s = 0; if (e >= STRIP_LEN) e = STRIP_LEN - 1;
+
+              for (int i = s; i <= e; i++) it[i] = c;
+
+              if (intensity > 60) {
+                  Color glow = Color((10 * intensity) >> 8, (10 * intensity) >> 8, (40 * intensity) >> 8);
+                  for (int k = 0; k < STRIP_LEN; k++) {
+                      if (k < s || k > e) it[k] = glow;
+                  }
+              }
+          }
+      }
