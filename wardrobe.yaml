@@ -42,27 +42,35 @@ sensor:
   - platform: debug
     free:
       name: "Heap Free"
-
-# ========== TEXT SENSORS ==========
+      
 text_sensor:
   - platform: wifi_info
     ssid:
       name: "Connected SSID"
       icon: "mdi:wifi"
       entity_category: "diagnostic"
+
+binary_sensor:
+  - platform: gpio
+    name: "Door"
+    device_class: door
+    pin:
+      number: GPIO4
+      mode: INPUT_PULLUP  # This is the "spring" that pulls the state back to Open
     
 
 # ========== LIGHT ==========
 
 light:
   - platform: neopixelbus
-    type: GRB
-    variant: WS2812X
+    type: GRBW
+    variant: sk6812
     pin: GPIO02
-    num_leds: 18
+    num_leds: 103
     id: strip_light
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF
+    default_transition_length: 0s
     effects:
       - addressable_twinkle:
       - random

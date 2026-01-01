@@ -25,7 +25,18 @@ web_server:
 improv_serial:
 debug:
 
+uart:
+  id: ld2420_radar
+  tx_pin: GPIO7
+  rx_pin: GPIO6
+  baud_rate: 115200
+  parity: NONE
+  stop_bits: 1
+  
+ld2420:
+
 # ========== SENSORS ==========
+
 sensor:
   - platform: wifi_signal
     name: "WiFi Signal (dBm)"
@@ -42,12 +53,60 @@ sensor:
     free:
       name: "Available Heap"
 
+  - platform: ld2420
+    moving_distance:
+      name : "Moving Distance"
+      id: dist_cm
+
 text_sensor:
   - platform: wifi_info
     ssid:
       name: "Connected SSID"
       icon: "mdi:wifi"
       entity_category: "diagnostic"
+  
+  - platform: ld2420
+    fw_version:
+      name: LD2420 Firmware
+
+binary_sensor:
+  - platform: ld2420
+    has_target:
+      name: "Presence"
+      id: radar_target
+
+select:
+  - platform: ld2420
+    operating_mode:
+      name: "Operating Mode"
+
+number:
+  - platform: ld2420
+    presence_timeout:
+      name: "Presence Timeout"
+    min_gate_distance:
+      name: "Min Gate"
+    max_gate_distance:
+      name: "Max Gate"
+    gate_select:
+      name: "Gate to Config"
+    still_threshold:
+      name: "Still Threshold Value"
+    move_threshold:
+      name: "Move Threshold Value"
+
+button:
+  - platform: ld2420
+    apply_config:
+      name: "Apply Config"
+    factory_reset:
+      name: "Factory Reset"
+    revert_config:
+      name: "Undo Edits"
+
+  - platform: restart
+    name: "Restart"
+    entity_category: diagnostic
 
 # ========== LIGHTS ==========
 light:
@@ -61,6 +120,7 @@ light:
     id: strip_light
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF
+    default_transition_length: 0s
     effects:
       - addressable_twinkle:
       - random

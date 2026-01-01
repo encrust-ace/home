@@ -56,10 +56,11 @@ light:
     variant: ws2812x
     type: GRB
     pin: GPIO02
-    num_leds: 202
+    num_leds: 175
     id: strip_light
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF
+    default_transition_length: 0s
     effects:
       - addressable_twinkle:
       - random
@@ -74,20 +75,20 @@ light:
     segments: 
       - id: strip_light
         from: 0
-        to: 55
+        to: 53
         
   - platform: partition
     name: "Middle"
     id: light_mid
     segments: 
       - id: strip_light
-        from: 56
-        to: 146
+        from: 54
+        to: 144
         
   - platform: partition
     name: "Top"
     id: light_top
     segments: 
       - id: strip_light
-        from: 147
-        to: 201
+        from: 145
+        to: 174
