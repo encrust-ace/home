@@ -1,0 +1,40 @@
+addressable_lambda:
+  name: "Lightning"
+  update_interval: 24ms
+  lambda: |-
+    #ifdef ARDUINO
+      #define RNG(max) random(max)
+    #else
+      #define RNG(max) (esp_random() % (max))
+    #endif
+
+    static uint16_t next_frame = 0;
+    static uint16_t frame = 0;
+    static uint8_t flashes = 0;
+
+    uint16_t count = it.size();
+    if (count < 2) return;
+
+    uint16_t px_start = RNG(count);
+    uint16_t px_end   = px_start + 1 + RNG(count - px_start);
+
+    if (!frame) {  // first frame
+      flashes = 4 + RNG(5);
+      next_frame = flashes * 2 + 5 + RNG(255);
+      it.all() = Color::BLACK;
+    }
+
+    if (frame == 0) {  // first frame less intensity
+      it.range(px_start, px_end) = current_color * 63;
+    } 
+    else if (frame > 3 && !(frame & 1) && flashes) {
+      uint8_t bri = 255 / (1 + RNG(2));
+      it.range(px_start, px_end) = current_color * bri;
+      flashes--;
+    } 
+    else {
+      it.all() = Color::BLACK;
+    }
+
+    frame++;
+    if (frame >= next_frame) frame = 0;

@@ -1,6 +1,6 @@
 esphome:
-  name: bed
-  friendly_name: "Bed"
+  name: wardrobe
+  friendly_name: "Wardrobe"
 
 esp8266:
   board: nodemcuv2
@@ -10,12 +10,14 @@ wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
   power_save_mode: NONE
+  reboot_timeout: 
+    minutes: 2
   ap:
-    ssid: "Bed AP"
+    ssid: "Wardrobe AP"
     password: "12345678"
 
 logger:
-  level: INFO
+  level: WARN
 api:
 ota:
   - platform: esphome
@@ -25,7 +27,6 @@ improv_serial:
 debug:
 
 # ========== SENSORS ==========
-
 sensor:
   - platform: wifi_signal
     name: "WiFi Signal (dBm)"
@@ -41,7 +42,7 @@ sensor:
   - platform: debug
     free:
       name: "Heap Free"
-
+      
 text_sensor:
   - platform: wifi_info
     ssid:
@@ -49,24 +50,42 @@ text_sensor:
       icon: "mdi:wifi"
       entity_category: "diagnostic"
 
-# ========== LIGHTS ==========
+binary_sensor:
+  - platform: gpio
+    name: "Door"
+    device_class: door
+    pin:
+      number: GPIO4
+      mode: INPUT_PULLUP  # This is the "spring" that pulls the state back to Open
+    
+
+# ========== LIGHT ==========
+number:
+  - platform: template
+    name: "Effect Speed" 
+    id: effect_speed
+    optimistic: true
+    min_value: 0
+    max_value: 50
+    step: 1
+    initial_value: 10
+    entity_category: "config"
+
+
 light:
-  # 1. MASTER PHYSICAL LIGHT
   - platform: neopixelbus
-    variant: ws2812x
-    type: GRB
+    type: GRBW
+    variant: sk6812
     pin: GPIO02
-    num_leds: 175
+    num_leds: 103
     id: strip_light
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF
     default_transition_length: 0s
     effects:
-      - addressable_twinkle:
       - random
-      - addressable_rainbow
-      - addressable_color_wipe
-          
+      - !include strip_effects/gradient.yaml
+      - !include strip_effects/lightning.yaml
 
   # 2. LOGICAL PARTITIONS
   - platform: partition
@@ -75,20 +94,20 @@ light:
     segments: 
       - id: strip_light
         from: 0
-        to: 53
+        to: 33
         
   - platform: partition
     name: "Middle"
     id: light_mid
     segments: 
       - id: strip_light
-        from: 54
-        to: 144
+        from: 34
+        to: 67
         
   - platform: partition
     name: "Top"
     id: light_top
     segments: 
       - id: strip_light
-        from: 145
-        to: 174
+        from: 68
+        to: 102

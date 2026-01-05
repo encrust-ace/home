@@ -1,6 +1,6 @@
 esphome:
   name: voice_assistant_1
-  friendly_name: "Voice Assistant 1"
+  friendly_name: "Voice Assistant"
   platformio_options:
     board_build.flash_mode: dio
   on_boot:
@@ -22,12 +22,6 @@ esp32:
       CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
       CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
       CONFIG_AUDIO_BOARD_CUSTOM: "y"
-      # Optimized WiFi settings for media streaming
-      CONFIG_ESP32_WIFI_STATIC_RX_BUFFER_NUM: "16"
-      CONFIG_ESP32_WIFI_DYNAMIC_RX_BUFFER_NUM: "64"
-      CONFIG_TCP_SND_BUF_DEFAULT: "65535"
-      CONFIG_TCP_WND_DEFAULT: "512000"
-      CONFIG_TCP_RECVMBOX_SIZE: "64"
    
 psram:
   mode: quad  # quad for N8R2 and octal for N16R8
@@ -162,7 +156,6 @@ microphone:
     adc_type: external
     i2s_din_pin: GPIO4    #SD pin on the INMP441
     i2s_audio_id: i2s_audio_mic_id
-    sample_rate: 16000
     channel: left
     
 speaker:
@@ -173,52 +166,12 @@ speaker:
     i2s_dout_pin: GPIO8   #DIN Pin of the MAX98357A
     i2s_audio_id: i2s_audio_speaker_id
     sample_rate: 48000
-
-  # Mixer (Virtual: Combines Voice + Music)
-  - platform: mixer
-    id: audio_mixer
-    output_speaker: speaker_id
-    source_speakers: 
-      - id: announcement_spk_mixer_input # Voice Assistant uses this
-      - id: media_spk_mixer_input        # Media Player uses this
-        
-  # Resampler (Virtual: Adapts Music to 48kHz)
-  - platform: resampler
-    id: media_spk_resampling_input
-    output_speaker: media_spk_mixer_input
-    sample_rate: 48000
-
-# ========== MEDIA PLAYER ==========
-media_player:
-  - platform: speaker
-    name: "Media Player"
-    id: media_player_id
-    # Use the resampling input for media pipeline
-    media_pipeline: 
-      speaker: media_spk_resampling_input
-      num_channels: 1
-      format: FLAC
-      sample_rate: 48000
-    # Use the mixer input directly for announcements
-    announcement_pipeline: 
-      speaker: announcement_spk_mixer_input
-      num_channels: 1
-      format: FLAC
-      sample_rate: 48000
+    channel: mono
 
 # ========== WAKE WORD ==========
 micro_wake_word:
   on_wake_word_detected:
     then:
-      # Duck media audio when wake word is detected
-      - if:
-          condition:
-            media_player.is_playing:
-          then:
-            - mixer_speaker.apply_ducking:
-                id: media_spk_mixer_input
-                decibel_reduction: 20
-                duration: 0.5s
       # Start Assistant
       - voice_assistant.start:
           wake_word: !lambda return wake_word;
@@ -236,7 +189,7 @@ voice_assistant:
   microphone: microphone_id
   noise_suppression_level: 1
   auto_gain: 31dBFS
-  speaker: announcement_spk_mixer_input
+  speaker: speaker_id
   
   on_listening:
     then:
@@ -279,11 +232,6 @@ voice_assistant:
   on_end:
     then:
       - light.turn_off: light_id
-      # Restore media volume after voice assistant finishes
-      - mixer_speaker.apply_ducking:
-          id: media_spk_mixer_input
-          decibel_reduction: 0
-          duration: 1.0s
       - wait_until:
           not:
             voice_assistant.is_running:
