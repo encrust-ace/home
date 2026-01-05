@@ -17,7 +17,7 @@ wifi:
     password: "12345678"
 
 logger:
-  level: WARN
+  level: INFO
 api:
 ota:
   - platform: esphome
