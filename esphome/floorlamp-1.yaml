@@ -1,10 +1,24 @@
+globals:
+  - id: palette_colors
+    type: std::vector<Color>
+    restore_value: false
+
 esphome:
-  name: floorlamp_1
+  name: floorlamp-1
   friendly_name: "Floorlamp 1"
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          if (id(palette_colors).empty()) {
+            id(palette_colors).push_back(Color(255,116,0,0));
+            id(palette_colors).push_back(Color(255,180,60,0));
+            id(palette_colors).push_back(Color(255,255,200,0));
+          }
 
 esp32:
   board: esp32-c3-devkitm-1
-  framework: 
+  framework:
     type: esp-idf
 
 wifi:
@@ -21,6 +35,7 @@ logger:
 api:
 ota:
   - platform: esphome
+
 captive_portal:
 web_server:
 improv_serial:
@@ -32,9 +47,7 @@ uart:
   tx_pin: GPIO7
   rx_pin: GPIO6
   baud_rate: 115200
-  parity: NONE
-  stop_bits: 1
-  
+
 ld2420:
 
 # ========== SENSORS ==========
@@ -42,14 +55,13 @@ ld2420:
 sensor:
   - platform: wifi_signal
     name: "WiFi Signal (dBm)"
-    id: wifi_signal_db
     update_interval: 60s
-    entity_category: "diagnostic"
+    entity_category: diagnostic
 
   - platform: uptime
     name: "Uptime"
-    unit_of_measurement: "s"
-    entity_category: "diagnostic"
+    unit_of_measurement: s
+    entity_category: diagnostic
 
   - platform: debug
     free:
@@ -57,19 +69,18 @@ sensor:
 
   - platform: ld2420
     moving_distance:
-      name : "Moving Distance"
+      name: "Moving Distance"
       id: dist_cm
 
 text_sensor:
   - platform: wifi_info
     ssid:
       name: "Connected SSID"
-      icon: "mdi:wifi"
-      entity_category: "diagnostic"
+      entity_category: diagnostic
 
   - platform: ld2420
     fw_version:
-      name: LD2420 Firmware
+      name: "LD2420 Firmware"
 
 binary_sensor:
   - platform: ld2420
@@ -96,16 +107,16 @@ number:
       name: "Still Threshold Value"
     move_threshold:
       name: "Move Threshold Value"
-      
+
   - platform: template
-    name: "Effect Speed" 
+    name: "Effect Speed"
     id: effect_speed
     optimistic: true
     min_value: 0
     max_value: 50
     step: 1
     initial_value: 10
-    entity_category: "config"
+    entity_category: config
 
 button:
   - platform: ld2420
@@ -115,52 +126,63 @@ button:
       name: "Factory Reset"
     revert_config:
       name: "Undo Edits"
-  
+
   - platform: restart
     name: "Restart"
     entity_category: diagnostic
 
+# ========== PALETTE INPUT ==========
+
+text:
+  - platform: template
+    name: "Palette"
+    id: custom_palette
+    optimistic: true
+    mode: text
+    initial_value: "255,116,0,0;255,180,60,0;255,255,200,0"
+    on_value:
+      then:
+        - lambda: |-
+            std::vector<Color> parsed;
+            int r, g, b, w;
+            const char *s = x.c_str();
+            bool invalid = false;
+
+            while (*s) {
+              if (sscanf(s, "%d,%d,%d,%d", &r, &g, &b, &w) == 4) {
+                if (r<0||r>255||g<0||g>255||b<0||b>255||w<0||w>255) {
+                  invalid = true;
+                  break;
+                }
+                parsed.push_back(Color(r, g, b, w));
+              } else {
+                invalid = true;
+                break;
+              }
+
+              s = strchr(s, ';');
+              if (!s) break;
+              s++;
+            }
+
+            if (!invalid && parsed.size() >= 2) {
+              id(palette_colors) = parsed;
+            }
+
 # ========== LIGHTS ==========
+
 light:
-  # 1. MASTER PHYSICAL LIGHT
   - platform: esp32_rmt_led_strip
-    rgb_order: GRB
-    chipset: SK6812
-    is_rgbw: true
-    pin: GPIO02
-    num_leds: 88
     id: strip_light
     name: "Light"
+    pin: GPIO02
+    num_leds: 88
+    chipset: SK6812
+    rgb_order: GRB
+    is_rgbw: true
     restore_mode: RESTORE_DEFAULT_OFF
     default_transition_length: 0s
     effects:
       - random
       - !include strip_effects/gradient.yaml
       - !include strip_effects/lightning.yaml
-      - !include strip_effects/flames.yaml
-          
-
-  # 2. LOGICAL PARTITIONS
-  - platform: partition
-    name: "Bottom"
-    id: light_bot
-    segments: 
-      - id: strip_light
-        from: 0
-        to: 28
-        
-  - platform: partition
-    name: "Middle"
-    id: light_mid
-    segments: 
-      - id: strip_light
-        from: 29
-        to: 57
-        
-  - platform: partition
-    name: "Top"
-    id: light_top
-    segments: 
-      - id: strip_light
-        from: 58
-        to: 87

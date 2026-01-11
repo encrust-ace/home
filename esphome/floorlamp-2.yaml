@@ -1,6 +1,20 @@
+globals:
+  - id: palette_colors
+    type: std::vector<Color>
+    restore_value: false
+
 esphome:
-  name: floorlamp_2
+  name: floorlamp-2
   friendly_name: "Floorlamp 2"
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          if (id(palette_colors).empty()) {
+            id(palette_colors).push_back(Color(255,116,0,0));
+            id(palette_colors).push_back(Color(255,180,60,0));
+            id(palette_colors).push_back(Color(255,255,200,0));
+          }
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -119,6 +133,45 @@ button:
     name: "Restart"
     entity_category: diagnostic
 
+# ========== PALETTE INPUT ==========
+
+text:
+  - platform: template
+    name: "Palette"
+    id: custom_palette
+    optimistic: true
+    mode: text
+    initial_value: "255,116,0,0;255,180,60,0;255,255,200,0"
+    on_value:
+      then:
+        - lambda: |-
+            std::vector<Color> parsed;
+            int r, g, b, w;
+            const char *s = x.c_str();
+            bool invalid = false;
+
+            while (*s) {
+              if (sscanf(s, "%d,%d,%d,%d", &r, &g, &b, &w) == 4) {
+                if (r<0||r>255||g<0||g>255||b<0||b>255||w<0||w>255) {
+                  invalid = true;
+                  break;
+                }
+                parsed.push_back(Color(r, g, b, w));
+              } else {
+                invalid = true;
+                break;
+              }
+
+              s = strchr(s, ';');
+              if (!s) break;
+              s++;
+            }
+
+            if (!invalid && parsed.size() >= 2) {
+              id(palette_colors) = parsed;
+            }
+
+
 # ========== LIGHTS ==========
 light:
   # 1. MASTER PHYSICAL LIGHT
@@ -136,30 +189,3 @@ light:
       - random
       - !include strip_effects/gradient.yaml
       - !include strip_effects/lightning.yaml
-      - !include strip_effects/flames.yaml
-          
-
-  # 2. LOGICAL PARTITIONS
-  - platform: partition
-    name: "Bottom"
-    id: light_bot
-    segments: 
-      - id: strip_light
-        from: 0
-        to: 28
-        
-  - platform: partition
-    name: "Middle"
-    id: light_mid
-    segments: 
-      - id: strip_light
-        from: 29
-        to: 57
-        
-  - platform: partition
-    name: "Top"
-    id: light_top
-    segments: 
-      - id: strip_light
-        from: 58
-        to: 87

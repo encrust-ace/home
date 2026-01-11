@@ -1,6 +1,20 @@
+globals:
+  - id: palette_colors
+    type: std::vector<Color>
+    restore_value: false
+
 esphome:
   name: wardrobe
   friendly_name: "Wardrobe"
+  on_boot:
+    priority: -100
+    then:
+      - lambda: |-
+          if (id(palette_colors).empty()) {
+            id(palette_colors).push_back(Color(255,116,0,0));
+            id(palette_colors).push_back(Color(255,180,60,0));
+            id(palette_colors).push_back(Color(255,255,200,0));
+          }
 
 esp8266:
   board: nodemcuv2
@@ -57,6 +71,44 @@ binary_sensor:
     pin:
       number: GPIO4
       mode: INPUT_PULLUP  # This is the "spring" that pulls the state back to Open
+
+# ========== PALETTE INPUT ==========
+
+text:
+  - platform: template
+    name: "Palette"
+    id: custom_palette
+    optimistic: true
+    mode: text
+    initial_value: "255,116,0,0;255,180,60,0;255,255,200,0"
+    on_value:
+      then:
+        - lambda: |-
+            std::vector<Color> parsed;
+            int r, g, b, w;
+            const char *s = x.c_str();
+            bool invalid = false;
+
+            while (*s) {
+              if (sscanf(s, "%d,%d,%d,%d", &r, &g, &b, &w) == 4) {
+                if (r<0||r>255||g<0||g>255||b<0||b>255||w<0||w>255) {
+                  invalid = true;
+                  break;
+                }
+                parsed.push_back(Color(r, g, b, w));
+              } else {
+                invalid = true;
+                break;
+              }
+
+              s = strchr(s, ';');
+              if (!s) break;
+              s++;
+            }
+
+            if (!invalid && parsed.size() >= 2) {
+              id(palette_colors) = parsed;
+            }
     
 
 # ========== LIGHT ==========
@@ -86,28 +138,3 @@ light:
       - random
       - !include strip_effects/gradient.yaml
       - !include strip_effects/lightning.yaml
-
-  # 2. LOGICAL PARTITIONS
-  - platform: partition
-    name: "Bottom"
-    id: light_bot
-    segments: 
-      - id: strip_light
-        from: 0
-        to: 33
-        
-  - platform: partition
-    name: "Middle"
-    id: light_mid
-    segments: 
-      - id: strip_light
-        from: 34
-        to: 67
-        
-  - platform: partition
-    name: "Top"
-    id: light_top
-    segments: 
-      - id: strip_light
-        from: 68
-        to: 102

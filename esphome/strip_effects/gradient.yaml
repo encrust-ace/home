@@ -2,29 +2,34 @@ addressable_lambda:
   name: "Gradient"
   update_interval: 16ms
   lambda: |-
-    // CAUTION: This effect requires partitions named light_top, light_mid, light_bot
-    auto tv = id(light_top).remote_values;
-    auto mv = id(light_mid).remote_values;
-    auto bv = id(light_bot).remote_values;
+    // Check size directly from the vector
+    if (id(palette_colors).size() < 2) return;
 
-    Color c1 = Color(tv.get_red()*255, tv.get_green()*255, tv.get_blue()*255);
-    Color c2 = Color(mv.get_red()*255, mv.get_green()*255, mv.get_blue()*255);
-    Color c3 = Color(bv.get_red()*255, bv.get_green()*255, bv.get_blue()*255);
+    uint32_t speed = (uint32_t) id(effect_speed).state;
+    uint32_t global_offset = ((uint64_t) millis() * speed) >> 6;
 
-    uint32_t speed = (uint32_t)id(effect_speed).state;
-    uint32_t global_offset = ((uint64_t)millis() * speed) >> 6; 
-    
     int num_leds = it.size();
-    uint32_t step = 768 / num_leds; 
+    
+    // Use .size() here. Casting to (int) helps avoid signed/unsigned warnings
+    int palette_count = (int)id(palette_colors).size();
+    int palette_steps = palette_count * 256;
+    uint32_t step = palette_steps / num_leds;
 
     for (int i = 0; i < num_leds; i++) {
-        uint16_t pos = (global_offset + (i * step)) % 768;
-        uint8_t section = pos >> 8;
-        uint8_t blend = pos & 0xFF;
-        uint8_t inv = 255 - blend;
-        Color target;
-        if (section == 0) target = Color((c1.r * inv + c2.r * blend) >> 8, (c1.g * inv + c2.g * blend) >> 8, (c1.b * inv + c2.b * blend) >> 8);
-        else if (section == 1) target = Color((c2.r * inv + c3.r * blend) >> 8, (c2.g * inv + c3.g * blend) >> 8, (c2.b * inv + c3.b * blend) >> 8);
-        else target = Color((c3.r * inv + c1.r * blend) >> 8, (c3.g * inv + c1.g * blend) >> 8, (c3.b * inv + c1.b * blend) >> 8);
-        it[i] = target;
+      uint16_t pos = (global_offset + (i * step)) % palette_steps;
+
+      int idx = pos >> 8;
+      uint8_t blend = pos & 0xFF;
+      uint8_t inv = 255 - blend;
+
+      Color a = id(palette_colors)[idx];
+      // Use .size() for the wrap-around logic
+      Color b = id(palette_colors)[(idx + 1) % palette_count];
+
+      it[i] = Color(
+        (a.r * inv + b.r * blend) >> 8,
+        (a.g * inv + b.g * blend) >> 8,
+        (a.b * inv + b.b * blend) >> 8,
+        (a.w * inv + b.w * blend) >> 8
+      );
     }
