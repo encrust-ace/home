@@ -130,13 +130,13 @@ light:
     type: GRBW
     variant: sk6812
     pin: GPIO4
-    num_leds: 103
+    num_leds: 105
     id: strip_light
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF
     default_transition_length: 0s
     effects:
-      - random
-      - !include strip_effects/gradient.yaml
-      - !include strip_effects/lightning.yaml
-      - wled
+      - random:
+      - !include custom-effects/gradient.yaml
+      - !include custom-effects/lightning.yaml
+      - wled:
