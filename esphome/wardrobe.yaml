@@ -39,6 +39,7 @@ captive_portal:
 web_server:
 improv_serial:
 debug:
+wled:
 
 # ========== SENSORS ==========
 sensor:
@@ -69,7 +70,7 @@ binary_sensor:
     name: "Door"
     device_class: door
     pin:
-      number: GPIO4
+      number: GPIO5
       mode: INPUT_PULLUP  # This is the "spring" that pulls the state back to Open
 
 # ========== PALETTE INPUT ==========
@@ -128,7 +129,7 @@ light:
   - platform: neopixelbus
     type: GRBW
     variant: sk6812
-    pin: GPIO02
+    pin: GPIO4
     num_leds: 103
     id: strip_light
     name: "Light"
@@ -138,3 +139,4 @@ light:
       - random
       - !include strip_effects/gradient.yaml
       - !include strip_effects/lightning.yaml
+      - wled

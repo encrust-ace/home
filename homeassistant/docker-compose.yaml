@@ -1,0 +1,53 @@
+services:
+  home_assistant:
+    container_name: home-assistant
+    image: ghcr.io/home-assistant/home-assistant:stable
+    privileged: true
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Kolkata
+    volumes:
+      - ${HOME}/.config/homelab/home-assistant:/config
+      - /run/dbus:/run/dbus:ro
+    network_mode: host
+
+  music_assistant:
+    container_name: music-assistant
+    image: ghcr.io/music-assistant/server
+    restart: unless-stopped
+    volumes:
+      - ${HOME}/.config/homelab/music-assistant:/data
+    network_mode: host
+    cap_add:
+      - DAC_READ_SEARCH
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+
+  esphome:
+    container_name: esphome
+    image: ghcr.io/esphome/esphome
+    privileged: true
+    restart: always
+    volumes:
+      - ${HOME}/.config/homelab/esphome:/config
+      - /etc/localtime:/etc/localtime:ro
+    network_mode: host
+    
+  matterbridge:
+    container_name: matterbridge
+    image: luligu/matterbridge:latest
+    network_mode: host
+    restart: always
+    volumes:
+      - "${HOME}/.config/homelab/matterbridge:/root/Matterbridge" # Mounts the Matterbridge plugin directory
+      - "${HOME}/.config/homelab/matterbridge/.matterbridge:/root/.matterbridge"  # Mounts the Matterbridge storage directory
+      - "${HOME}/.config/homelab/matterbridge/.mattercert:/root/.mattercert"   # Mounts the Matterbridge certificate directory
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --token eyJhIjoiZGY1OWM0MjliYTljOWM4MmU5OWE0NTAwMjk5Yzg4YzIiLCJ0IjoiMTEzZTQ4MjYtZDQyZS00MDkzLTlmMDgtNDU3NDdjZTUwZWM3IiwicyI6IllqZGtOVFkyWWprdFpUSTJOeTAwWVRNNUxXRXhaR1l0WmpJMk1qbG1ZVGRoTW1FNCJ9
+
+

@@ -1,0 +1,14 @@
+services:
+  ledfx:
+    image: ghcr.io/ledfx/ledfx:latest
+    container_name: ledfx
+    restart: on-failure:3
+    # Network host is still required to automatically find WLED devices on your network
+    network_mode: host
+    
+    volumes:
+      # Persistent configuration storage (saves your devices and settings)
+      - ledfx-config:${HOME}/.config/homelab/ledfx:rw
+
+volumes:
+  ledfx-config:
