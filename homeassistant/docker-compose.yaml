@@ -34,15 +34,17 @@ services:
       - /etc/localtime:/etc/localtime:ro
     network_mode: host
     
-  matterbridge:
-    container_name: matterbridge
-    image: luligu/matterbridge:latest
-    network_mode: host
-    restart: always
+  matter_hub:
+    container_name: matter_hub
+    image: ghcr.io/t0bst4r/home-assistant-matter-hub:latest
+    restart: unless-stopped
+    environment:
+      - HAMH_HOME_ASSISTANT_URL=http://192.168.68.61:8123/
+      - HAMH_HOME_ASSISTANT_ACCESS_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI2MzEyOWIwYzZmYzY0OWI0Yjg2OTFmMGRlYjcyZjRkMiIsImlhdCI6MTc1MTA5NTAzNSwiZXhwIjoyMDY2NDU1MDM1fQ.tg9PRmkFreD1Fh6YZac-DWMHEx8a4Db3WOvxNC5QSeA
+      - HAMH_HTTP_PORT=8482
     volumes:
-      - "${HOME}/.config/homelab/matterbridge:/root/Matterbridge" # Mounts the Matterbridge plugin directory
-      - "${HOME}/.config/homelab/matterbridge/.matterbridge:/root/.matterbridge"  # Mounts the Matterbridge storage directory
-      - "${HOME}/.config/homelab/matterbridge/.mattercert:/root/.mattercert"   # Mounts the Matterbridge certificate directory
+      - ${HOME}/.config/homelab/matterbridge:/data
+    network_mode: host
 
   cloudflared:
     image: cloudflare/cloudflared:latest
