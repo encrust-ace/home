@@ -1,5 +1,5 @@
 esphome:
-  name: voice_assistant_1
+  name: va-jarvis
   friendly_name: "Voice Assistant"
   platformio_options:
     board_build.flash_mode: dio
@@ -8,7 +8,7 @@ esphome:
       then:
         - light.turn_on:
             id: light_id
-            brightness: 100%
+            brightness: 50%
             effect: rainbow
         - delay: 3s
         - light.turn_off: light_id
@@ -22,17 +22,17 @@ esp32:
       CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
       CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
       CONFIG_AUDIO_BOARD_CUSTOM: "y"
-   
+      # Watchdog timeout increase for stability
+      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "20"
+
 psram:
-  mode: quad  # quad for N8R2 and octal for N16R8
+  mode: quad
   speed: 80MHz
 
-# Enable logging
 logger:
   hardware_uart: UART0
   level: INFO
 
-# Enable Home Assistant API
 api:
   on_client_connected:
     then:
@@ -45,7 +45,8 @@ api:
             - micro_wake_word.start:
   on_client_disconnected:
     then:
-      - voice_assistant.stop: 
+      - voice_assistant.stop:
+      - micro_wake_word.stop:
 
 ota:
   - platform: esphome
@@ -63,7 +64,6 @@ web_server:
 improv_serial:
 
 # ========== SENSORS ==========
-
 sensor:
   - platform: wifi_signal
     name: "WiFi Signal (dBm)"
@@ -93,6 +93,7 @@ switch:
     on_turn_on: 
       - micro_wake_word.stop:
       - voice_assistant.stop:
+      - media_player.stop: media_player_id
       - light.turn_on:
           id: light_id           
           red: 100%
@@ -139,47 +140,84 @@ light:
       - addressable_rainbow:
           width: 10
           speed: 15
-          
-          
-# ========== AUDIO HARDWARE ==========       
+
+# ========== AUDIO HARDWARE (I2S) ==========
 i2s_audio:
-  - id: i2s_audio_mic_id
-    i2s_lrclk_pin: GPIO3  #WS 
-    i2s_bclk_pin: GPIO2   #SCK
-  - id: i2s_audio_speaker_id
-    i2s_lrclk_pin: GPIO6  #LRC 
-    i2s_bclk_pin: GPIO7   #BLCK
+  - id: i2s_mic_bus
+    i2s_lrclk_pin: GPIO3
+    i2s_bclk_pin: GPIO2
+  - id: i2s_speaker_bus
+    i2s_lrclk_pin: GPIO6
+    i2s_bclk_pin: GPIO7
 
 microphone:
   - platform: i2s_audio
     id: microphone_id
     adc_type: external
-    i2s_din_pin: GPIO4    #SD pin on the INMP441
-    i2s_audio_id: i2s_audio_mic_id
+    i2s_din_pin: GPIO4
+    i2s_audio_id: i2s_mic_bus
     channel: left
     
+# 1. HARDWARE SPEAKER (Physical Pin)
 speaker:
-  # Hardware Speaker (Physical)
   - platform: i2s_audio
-    id: speaker_id
+    id: hardware_speaker_node
     dac_type: external
-    i2s_dout_pin: GPIO8   #DIN Pin of the MAX98357A
-    i2s_audio_id: i2s_audio_speaker_id
-    sample_rate: 48000
+    i2s_dout_pin: GPIO8
+    i2s_audio_id: i2s_speaker_bus
     channel: mono
+
+  # 2. MIXER (Virtual Splitter)
+  # Corrected properties: output_speaker, source_speakers
+  - platform: mixer
+    id: mixer_node
+    output_speaker: hardware_speaker_node
+    source_speakers:
+      - id: music_source_speaker
+      - id: voice_source_speaker
+
+# ========== MEDIA PLAYER ==========
+media_player:
+  - platform: speaker
+    id: media_player_id
+    name: "Jarvis Media Player"
+    # Route Announcements (Voice Assistant) to the Virtual Voice Speaker
+    announcement_pipeline:
+      speaker: voice_source_speaker
+    # Route Music (Music Assistant) to the Virtual Music Speaker
+    media_pipeline:
+      speaker: music_source_speaker
+    on_state:
+      - if:
+          condition:
+            media_player.is_playing:
+          then:
+            - light.turn_on:
+                id: light_id
+                red: 0%
+                green: 0%
+                blue: 100%
+                brightness: 30%
+                effect: none
+          else:
+            - light.turn_off: light_id
 
 # ========== WAKE WORD ==========
 micro_wake_word:
   on_wake_word_detected:
     then:
-      # Start Assistant
-      - voice_assistant.start:
-          wake_word: !lambda return wake_word;
-      # LED Feedback
+      - micro_wake_word.stop:
+      # Optional: Pause music when listening
+      # - media_player.pause: media_player_id 
       - light.turn_on:
           id: light_id           
-          brightness: 100%
-          effect: rainbow
+          red: 0%
+          green: 0%
+          blue: 100%
+          brightness: 80%
+          effect: none
+      - voice_assistant.start:
+          wake_word: !lambda return wake_word;
   models:
     - model: hey_jarvis
 
@@ -189,7 +227,7 @@ voice_assistant:
   microphone: microphone_id
   noise_suppression_level: 1
   auto_gain: 31dBFS
-  speaker: speaker_id
+  media_player: media_player_id
   
   on_listening:
     then:
@@ -198,14 +236,14 @@ voice_assistant:
           red: 0%
           blue: 0%
           green: 100%
-          brightness: 100%
+          brightness: 80%
           effect: none
           
   on_intent_start:
     then:
       - light.turn_on:
           id: light_id
-          brightness: 100%
+          brightness: 80%
           effect: rainbow
           
   on_intent_end:
@@ -220,7 +258,7 @@ voice_assistant:
           green: 0%
           blue: 0%
           brightness: 100%
-          effect: none
+          effect: fast pulse
       - delay: 1s
       - light.turn_off: light_id
       - if:
