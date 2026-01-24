@@ -11,19 +11,6 @@ services:
       - /run/dbus:/run/dbus:ro
     network_mode: host
 
-  music_assistant:
-    container_name: music-assistant
-    image: ghcr.io/music-assistant/server
-    restart: unless-stopped
-    volumes:
-      - ${HOME}/.config/homelab/music-assistant:/data
-    network_mode: host
-    cap_add:
-      - DAC_READ_SEARCH
-      - SYS_ADMIN
-    security_opt:
-      - apparmor:unconfined
-
   esphome:
     container_name: esphome
     image: ghcr.io/esphome/esphome
@@ -40,7 +27,7 @@ services:
     restart: unless-stopped
     environment:
       - HAMH_HOME_ASSISTANT_URL=http://192.168.68.61:8123/
-      - HAMH_HOME_ASSISTANT_ACCESS_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiI2MzEyOWIwYzZmYzY0OWI0Yjg2OTFmMGRlYjcyZjRkMiIsImlhdCI6MTc1MTA5NTAzNSwiZXhwIjoyMDY2NDU1MDM1fQ.tg9PRmkFreD1Fh6YZac-DWMHEx8a4Db3WOvxNC5QSeA
+      - HAMH_HOME_ASSISTANT_ACCESS_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJmYzA4NDllZmNjOGM0Y2EyYTJiZTRhNWJmNTY2OWIyZSIsImlhdCI6MTc2OTA1NTUwNiwiZXhwIjoyMDg0NDE1NTA2fQ.x8pUmiSk33UP_T3_PKB0pdXy2R0RyxM4O-qu52ox9nM
       - HAMH_HTTP_PORT=8482
     volumes:
       - ${HOME}/.config/homelab/matterbridge:/data
