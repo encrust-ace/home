@@ -179,7 +179,7 @@ light:
     rgb_order: GRB
     chipset: SK6812
     is_rgbw: true
-    pin: GPIO02
+    pin: GPIO4
     num_leds: 88
     id: strip_light
     name: "Light"
