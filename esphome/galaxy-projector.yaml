@@ -1,0 +1,90 @@
+esphome:
+  name: galaxy-projector
+  friendly_name: "Galaxy Projector"
+
+esp32:
+  board: esp32dev
+  framework:
+    type: esp-idf
+
+logger:
+api:
+captive_portal:
+web_server:
+improv_serial:
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  ap:
+    ssid: "Galaxy Projector"
+    password: "12345678"
+
+# --- OUTPUTS (Using Safe Pins: 13, 14, 27, 26, 25) ---
+output:
+  # Red LED -> GPIO 13
+  - platform: ledc
+    id: output_red
+    pin: GPIO13
+    frequency: 1000Hz
+
+  # Green LED -> GPIO 14
+  - platform: ledc
+    id: output_green
+    pin: GPIO14
+    frequency: 1000Hz
+
+  # Blue LED -> GPIO 27
+  - platform: ledc
+    id: output_blue
+    pin: GPIO27
+    frequency: 1000Hz
+
+  # Laser (Stars) -> GPIO 26
+  - platform: ledc
+    id: output_laser
+    pin: GPIO26
+    frequency: 1000Hz
+
+  # Motor (Rotation) -> GPIO 25
+  - platform: ledc
+    id: output_motor
+    pin: GPIO25
+    frequency: 1000Hz
+
+# --- ENTITIES ---
+light:
+  # The Nebula (RGB)
+  - platform: rgb
+    name: "Nebula"
+    red: output_red
+    green: output_green
+    blue: output_blue
+    id: nebula_light
+
+  # The Stars (Laser)
+  - platform: monochromatic
+    name: "Stars"
+    output: output_laser
+    default_transition_length: 0.5s
+    effects:
+      - pulse:
+          name: "Breathing"
+          transition_length: 2s
+          update_interval: 2s
+      - strobe:
+          name: "Twinkle"
+          colors:
+            - state: true
+              brightness: 100%
+              duration: 200ms
+            - state: false
+              duration: 200ms
+
+fan:
+  # The Rotation Speed
+  - platform: speed
+    output: output_motor
+    name: "Nebula Speed"
