@@ -23,15 +23,17 @@ esp8266:
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+  min_auth_mode: WPA2
   power_save_mode: NONE
   reboot_timeout: 
     minutes: 2
   ap:
-    ssid: "Wardrobe AP"
+    ssid: "Wardrobe"
     password: "12345678"
 
 logger:
   level: INFO
+
 api:
 ota:
   - platform: esphome
@@ -39,7 +41,17 @@ captive_portal:
 web_server:
 improv_serial:
 debug:
-wled:
+
+# Enable UART for LD2420
+uart:
+  id: uart_bus
+  tx_pin: GPIO13  # D7 (Connect to LD2420 RX)
+  rx_pin: GPIO12  # D6 (Connect to LD2420 TX)
+  baud_rate: 115200
+
+# Configure LD2420 Component
+ld2420:
+  uart_id: uart_bus
 
 # ========== SENSORS ==========
 sensor:
@@ -57,23 +69,76 @@ sensor:
   - platform: debug
     free:
       name: "Heap Free"
-      
+  
+  # LD2420 Distance Sensors
+  - platform: ld2420
+    moving_distance:
+      name: "Moving Distance"
+
 text_sensor:
   - platform: wifi_info
     ssid:
       name: "Connected SSID"
       icon: "mdi:wifi"
       entity_category: "diagnostic"
+      
+  - platform: ld2420
+    fw_version:
+      name: "LD2420 Firmware"
 
 binary_sensor:
+  # Updated Door Sensor Pin (Moved to D5/GPIO14)
   - platform: gpio
     name: "Door"
     device_class: door
     pin:
-      number: GPIO5
-      mode: INPUT_PULLUP  # This is the "spring" that pulls the state back to Open
+      number: GPIO14  # D5
+      mode: INPUT_PULLUP 
+
+  # LD2420 Presence Sensor
+  - platform: ld2420
+    has_target:
+      name: "Presence"
 
 # ========== PALETTE INPUT ==========
+
+number:
+  - platform: ld2420
+    presence_timeout:
+      name: "Presence Timeout"
+    min_gate_distance:
+      name: "Min Gate"
+    max_gate_distance:
+      name: "Max Gate"
+    gate_select:
+      name: "Gate to Config"
+    still_threshold:
+      name: "Still Threshold Value"
+    move_threshold:
+      name: "Move Threshold Value"
+
+  - platform: template
+    name: "Effect Speed" 
+    id: effect_speed
+    optimistic: true
+    min_value: 0
+    max_value: 50
+    step: 1
+    initial_value: 10
+    entity_category: "config"
+
+button:
+  - platform: ld2420
+    apply_config:
+      name: "Apply Config"
+    factory_reset:
+      name: "Factory Reset"
+    revert_config:
+      name: "Undo Edits"
+
+  - platform: restart
+    name: "Restart"
+    entity_category: diagnostic
 
 text:
   - platform: template
@@ -110,33 +175,33 @@ text:
             if (!invalid && parsed.size() >= 2) {
               id(palette_colors) = parsed;
             }
-    
 
 # ========== LIGHT ==========
-number:
-  - platform: template
-    name: "Effect Speed" 
-    id: effect_speed
-    optimistic: true
-    min_value: 0
-    max_value: 50
-    step: 1
-    initial_value: 10
-    entity_category: "config"
-
 
 light:
+  # STRIP 1 (Moved to GPIO5 / D1)
+  - platform: neopixelbus
+    type: GRBW
+    variant: sk6812
+    pin: GPIO5
+    num_leds: 105
+    id: top_light
+    name: "Top Light"
+    restore_mode: RESTORE_DEFAULT_OFF
+    default_transition_length: 0s
+    effects: &light_effects # Using YAML anchor to copy effects to second strip
+      - random:
+      - !include custom-effects/gradient.yaml
+      - !include custom-effects/lightning.yaml
+
+  # STRIP 2 (Added on GPIO4 / D2)
   - platform: neopixelbus
     type: GRBW
     variant: sk6812
     pin: GPIO4
-    num_leds: 105
-    id: strip_light
-    name: "Light"
+    num_leds: 105 # Adjust this number for the second strip
+    id: bottom_light
+    name: "Bottom Light"
     restore_mode: RESTORE_DEFAULT_OFF
     default_transition_length: 0s
-    effects:
-      - random:
-      - !include custom-effects/gradient.yaml
-      - !include custom-effects/lightning.yaml
-      - wled:
+    effects: *light_effects # Applies same effects as above

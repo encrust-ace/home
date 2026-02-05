@@ -23,6 +23,7 @@ esp8266:
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+  min_auth_mode: WPA2
   power_save_mode: NONE
   ap:
     ssid: "Bed"
@@ -37,7 +38,6 @@ captive_portal:
 web_server:
 improv_serial:
 debug:
-wled:
 
 # ========== SENSORS ==========
 
@@ -121,7 +121,7 @@ light:
     variant: ws2811
     type: BRG
     pin: GPIO04
-    num_leds: 50
+    num_leds: 54
     id: strip_light
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF
@@ -130,4 +130,3 @@ light:
       - random:
       - !include custom-effects/gradient.yaml
       - !include custom-effects/lightning.yaml
-      - wled:

@@ -19,7 +19,7 @@ esphome:
 esp32:
   board: esp32-c3-devkitm-1
   framework: 
-    type: arduino
+    type: esp-idf
 
 wifi:
   ssid: !secret wifi_ssid
@@ -38,7 +38,6 @@ captive_portal:
 web_server:
 improv_serial:
 debug:
-wled:
 
 uart:
   id: ld2420_radar
@@ -189,4 +188,3 @@ light:
       - random
       - !include custom-effects/gradient.yaml
       - !include custom-effects/lightning.yaml
-      - wled:
