@@ -144,7 +144,7 @@ light:
 # ========== AUDIO HARDWARE (I2S) ==========
 i2s_audio:
   - id: i2s_mic_bus
-    i2s_lrclk_pin: GPIO3
+    i2s_lrclk_pin: GPIO1
     i2s_bclk_pin: GPIO2
   - id: i2s_speaker_bus
     i2s_lrclk_pin: GPIO6
