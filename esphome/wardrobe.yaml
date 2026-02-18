@@ -32,6 +32,7 @@ wifi:
     password: "12345678"
 
 logger:
+  baud_rate: 0
   level: WARN
 
 api:
@@ -42,16 +43,14 @@ ota:
 captive_portal:
 
 web_server:
-
-improv_serial:
   
 debug:
 
 # Enable UART for LD2420
 uart:
   id: uart_bus
-  tx_pin: GPIO13  # D7 (Connect to LD2420 RX)
-  rx_pin: GPIO12  # D6 (Connect to LD2420 TX)
+  tx_pin: GPIO1  # Hardware TX (Standard)
+  rx_pin: GPIO3  # Hardware RX (Standard)
   baud_rate: 115200
 
 ld2420:

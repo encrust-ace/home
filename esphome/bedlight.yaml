@@ -36,7 +36,6 @@ ota:
   - platform: esphome
 captive_portal:
 web_server:
-improv_serial:
 debug:
 
 # ========== SENSORS ==========
