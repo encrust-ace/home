@@ -46,16 +46,6 @@ web_server:
   
 debug:
 
-# Enable UART for LD2420
-uart:
-  id: uart_bus
-  tx_pin: GPIO1  # Hardware TX (Standard)
-  rx_pin: GPIO3  # Hardware RX (Standard)
-  baud_rate: 115200
-
-ld2420:
-  uart_id: uart_bus
-
 # ========== SENSORS ==========
 sensor:
   - platform: wifi_signal
@@ -72,11 +62,7 @@ sensor:
   - platform: debug
     free:
       name: "Heap Free"
-  
-  # LD2420 Distance Sensors
-  - platform: ld2420
-    moving_distance:
-      name: "Moving Distance"
+
 
 text_sensor:
   - platform: wifi_info
@@ -84,10 +70,6 @@ text_sensor:
       name: "Connected SSID"
       icon: "mdi:wifi"
       entity_category: "diagnostic"
-      
-  - platform: ld2420
-    fw_version:
-      name: "LD2420 Firmware"
 
 binary_sensor:
   # Updated Door Sensor Pin (Moved to D5/GPIO14)
@@ -98,33 +80,9 @@ binary_sensor:
       number: GPIO14  # D5
       mode: INPUT_PULLUP 
 
-  # LD2420 Presence Sensor
-  - platform: ld2420
-    has_target:
-      name: "Presence"
-
 # ========== PALETTE INPUT ==========
 
-select:
-  - platform: ld2420
-    operating_mode: 
-      name: "Working Mode"
-
 number:
-  - platform: ld2420
-    presence_timeout:
-      name: "Presence Timeout"
-    min_gate_distance:
-      name: "Min Gate"
-    max_gate_distance:
-      name: "Max Gate"
-    gate_select:
-      name: "Gate to Config"
-    still_threshold:
-      name: "Still Threshold Value"
-    move_threshold:
-      name: "Move Threshold Value"
-
   - platform: template
     name: "Effect Speed" 
     id: effect_speed
@@ -136,14 +94,6 @@ number:
     entity_category: "config"
 
 button:
-  - platform: ld2420
-    apply_config:
-      name: "Apply Config"
-    factory_reset:
-      name: "Factory Reset"
-    revert_config:
-      name: "Undo Edits"
-
   - platform: restart
     name: "Restart"
     entity_category: diagnostic
