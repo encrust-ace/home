@@ -85,7 +85,7 @@ light:
       - random:
       - e131:
           universe: 1
-          channels: RGBW
+          channels: RGB
       
 
   # STRIP 2 (Added on GPIO4 / D2)
