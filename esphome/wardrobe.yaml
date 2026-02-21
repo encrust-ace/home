@@ -1,20 +1,6 @@
-globals:
-  - id: palette_colors
-    type: std::vector<Color>
-    restore_value: false
-
 esphome:
   name: wardrobe
   friendly_name: "Wardrobe"
-  on_boot:
-    priority: -100
-    then:
-      - lambda: |-
-          if (id(palette_colors).empty()) {
-            id(palette_colors).push_back(Color(255,116,0,0));
-            id(palette_colors).push_back(Color(255,180,60,0));
-            id(palette_colors).push_back(Color(255,255,200,0));
-          }
 
 esp8266:
   board: nodemcuv2
@@ -32,8 +18,7 @@ wifi:
     password: "12345678"
 
 logger:
-  baud_rate: 0
-  level: WARN
+  level: INFO
 
 api:
 
@@ -43,6 +28,9 @@ ota:
 captive_portal:
 
 web_server:
+
+e131:
+  method: MULTICAST
   
 debug:
 
@@ -80,60 +68,6 @@ binary_sensor:
       number: GPIO14  # D5
       mode: INPUT_PULLUP 
 
-# ========== PALETTE INPUT ==========
-
-number:
-  - platform: template
-    name: "Effect Speed" 
-    id: effect_speed
-    optimistic: true
-    min_value: 0
-    max_value: 50
-    step: 1
-    initial_value: 10
-    entity_category: "config"
-
-button:
-  - platform: restart
-    name: "Restart"
-    entity_category: diagnostic
-
-text:
-  - platform: template
-    name: "Palette"
-    id: custom_palette
-    optimistic: true
-    mode: text
-    initial_value: "255,116,0,0;255,180,60,0;255,255,200,0"
-    on_value:
-      then:
-        - lambda: |-
-            std::vector<Color> parsed;
-            int r, g, b, w;
-            const char *s = x.c_str();
-            bool invalid = false;
-
-            while (*s) {
-              if (sscanf(s, "%d,%d,%d,%d", &r, &g, &b, &w) == 4) {
-                if (r<0||r>255||g<0||g>255||b<0||b>255||w<0||w>255) {
-                  invalid = true;
-                  break;
-                }
-                parsed.push_back(Color(r, g, b, w));
-              } else {
-                invalid = true;
-                break;
-              }
-
-              s = strchr(s, ';');
-              if (!s) break;
-              s++;
-            }
-
-            if (!invalid && parsed.size() >= 2) {
-              id(palette_colors) = parsed;
-            }
-
 # ========== LIGHT ==========
 
 light:
@@ -149,8 +83,10 @@ light:
     default_transition_length: 0s
     effects: &light_effects # Using YAML anchor to copy effects to second strip
       - random:
-      - !include custom-effects/gradient.yaml
-      - !include custom-effects/lightning.yaml
+      - e131:
+          universe: 1
+          channels: RGBW
+      
 
   # STRIP 2 (Added on GPIO4 / D2)
   - platform: neopixelbus

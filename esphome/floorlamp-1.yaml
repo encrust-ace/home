@@ -1,20 +1,6 @@
-globals:
-  - id: palette_colors
-    type: std::vector<Color>
-    restore_value: false
-
 esphome:
   name: floorlamp-1
   friendly_name: "Floorlamp 1"
-  on_boot:
-    priority: -100
-    then:
-      - lambda: |-
-          if (id(palette_colors).empty()) {
-            id(palette_colors).push_back(Color(255,116,0,0));
-            id(palette_colors).push_back(Color(255,180,60,0));
-            id(palette_colors).push_back(Color(255,255,200,0));
-          }
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -36,7 +22,8 @@ ota:
   - platform: esphome
 captive_portal:
 web_server:
-improv_serial:
+e131:
+  method: MULTICAST
 debug:
 
 uart:
@@ -106,16 +93,6 @@ number:
     move_threshold:
       name: "Move Threshold Value"
 
-  - platform: template
-    name: "Effect Speed"
-    id: effect_speed
-    optimistic: true
-    min_value: 0
-    max_value: 50
-    step: 1
-    initial_value: 10
-    entity_category: config
-
 button:
   - platform: ld2420
     apply_config:
@@ -129,44 +106,6 @@ button:
     name: "Restart"
     entity_category: diagnostic
 
-# ========== PALETTE INPUT ==========
-
-text:
-  - platform: template
-    name: "Palette"
-    id: custom_palette
-    optimistic: true
-    mode: text
-    initial_value: "255,116,0,0;255,180,60,0;255,255,200,0"
-    on_value:
-      then:
-        - lambda: |-
-            std::vector<Color> parsed;
-            int r, g, b, w;
-            const char *s = x.c_str();
-            bool invalid = false;
-
-            while (*s) {
-              if (sscanf(s, "%d,%d,%d,%d", &r, &g, &b, &w) == 4) {
-                if (r<0||r>255||g<0||g>255||b<0||b>255||w<0||w>255) {
-                  invalid = true;
-                  break;
-                }
-                parsed.push_back(Color(r, g, b, w));
-              } else {
-                invalid = true;
-                break;
-              }
-
-              s = strchr(s, ';');
-              if (!s) break;
-              s++;
-            }
-
-            if (!invalid && parsed.size() >= 2) {
-              id(palette_colors) = parsed;
-            }
-
 # ========== LIGHTS ==========
 
 light:
@@ -178,8 +117,10 @@ light:
     chipset: WS2811
     rgb_order: BRG
     restore_mode: RESTORE_DEFAULT_OFF
-    default_transition_length: 0s
     effects:
       - random
-      - !include custom-effects/gradient.yaml
-      - !include custom-effects/lightning.yaml
+      - e131: 
+          universe: 1
+          channels: RGB
+          
+          
