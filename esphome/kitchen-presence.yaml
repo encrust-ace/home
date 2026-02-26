@@ -1,0 +1,77 @@
+esphome:
+  name: kitchen-presence
+  friendly_name: "Kitchen Presence"
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: esp-idf  # Best for S3-Zero hardware peripherals
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  min_auth_mode: WPA2
+  reboot_timeout: 
+    minutes: 2
+  ap:
+    ssid: "Kitchen Presence"
+    password: "12345678"
+
+logger:
+  level: INFO
+
+api:
+
+ota:
+  - platform: esphome
+
+captive_portal:
+
+web_server:
+
+e131:
+  method: MULTICAST
+  
+debug:
+
+# ========== SENSORS ==========
+
+sensor:
+  - platform: wifi_signal
+    name: "WiFi Signal (dBm)"
+    id: wifi_signal_db
+    update_interval: 60s
+    entity_category: "diagnostic"
+
+  - platform: uptime
+    name: "Uptime"
+    unit_of_measurement: "s"
+    entity_category: "diagnostic"
+
+  - platform: debug
+    free:
+      name: "Heap Free"
+
+text_sensor:
+  - platform: wifi_info
+    ssid:
+      name: "Connected SSID"
+      icon: "mdi:wifi"
+      entity_category: "diagnostic"
+
+# ========== LIGHTS ==========
+
+light:
+  - platform: esp32_rmt_led_strip
+    id: strip_light
+    name: "Light"
+    pin: GPIO1
+    num_leds: 22
+    chipset: WS2811
+    rgb_order: GRB
+    restore_mode: RESTORE_DEFAULT_OFF
+    effects:
+      - random
+      - e131: 
+          universe: 1
+          channels: RGB
