@@ -1,0 +1,102 @@
+# docker compose up -d --pull always && docker image prune -f
+volumes:
+  ledfx-config:
+
+services:
+ home_assistant:
+   container_name: home-assistant
+   image: ghcr.io/home-assistant/home-assistant:stable
+   privileged: true
+   restart: unless-stopped
+   environment:
+     - TZ=Asia/Kolkata
+   volumes:
+     - ${HOME}/.config/homelab/home-assistant:/config
+     - ${HOME}/.config/homelab/home-assistant/media:/media
+     - /run/dbus:/run/dbus:ro
+   network_mode: host
+
+ esphome:
+   container_name: esphome
+   image: ghcr.io/esphome/esphome
+   privileged: true
+   restart: always
+   volumes:
+     - ${HOME}/.config/homelab/esphome:/config
+     - /etc/localtime:/etc/localtime:ro
+   network_mode: host
+
+
+ matter-hub:
+  container_name: matter-hub
+  image: ghcr.io/riddix/home-assistant-matter-hub:latest
+  restart: unless-stopped
+  environment: # more options can be found in the configuration section
+    - HAMH_HOME_ASSISTANT_URL=http://192.168.68.70:8123/
+    - HAMH_HOME_ASSISTANT_ACCESS_TOKEN=eydummy
+    - HAMH_LOG_LEVEL=info
+    - HAMH_HTTP_PORT=8482
+  volumes:
+    - ${HOME}/.config/homelab/matterhub:/data
+  network_mode: host
+
+ cloudflared:
+   image: cloudflare/cloudflared:latest
+   container_name: cloudflared
+   restart: unless-stopped
+   network_mode: host
+   command: tunnel --no-autoupdate run --token eydummy
+
+
+ wud:
+  image: getwud/wud:latest
+  container_name: wud
+  restart: unless-stopped
+  volumes:
+    # This is the crucial part: it gives WUD access to see your running containers
+    - /var/run/docker.sock:/var/run/docker.sock:ro
+  network_mode: host
+  
+ ledfx:
+  image: ghcr.io/ledfx/ledfx:latest
+  container_name: ledfx
+  restart: on-failure:3
+  volumes:
+  - ledfx-config:/home/ledfx/ledfx-config:rw # Path to LedFx configuration files
+  - ${HOME}/.config/homelab/ledfx/pulse:/home/ledfx/.config/pulse:rw # Necessary when running in pulseaudio server mode. /path/to/ledfx/pulse should be with read write access for UID:GID=1000:1000
+  network_mode: host
+
+#  sendspin-ledfx:
+#   image: python:3.12-slim
+#   container_name: sendspin-ledfx
+#   restart: on-failure:3
+#   network_mode: host
+#   environment:
+#     - PULSE_SERVER=unix:/tmp/pulse/pulseaudio.socket
+#     - PULSE_COOKIE=/tmp/pulse/cookie
+#   volumes:
+#     - ${HOME}/.config/homelab/ledfx/pulse:/tmp/pulse:rw 
+#   command: >
+#     sh -c "apt-get update && 
+#     apt-get install -y --no-install-recommends libportaudio2 pulseaudio && 
+#     pip install sendspin && 
+#     sendspin daemon --name 'LedFx-Visualizer' --id 'ledfx-visualizer'"
+#   depends_on:
+#     - ledfx
+
+#  music-assistant:
+#     image: ghcr.io/music-assistant/server:latest
+#     container_name: music-assistant
+#     restart: unless-stopped
+#     network_mode: host
+#     volumes:
+#       - ${HOME}/.config/homelab/music-assistant:/data/
+#     # privileged caps (and security-opt) needed to mount smb folders within the container
+#     cap_add:
+#       - SYS_ADMIN
+#       - DAC_READ_SEARCH
+#     security_opt:
+#       - apparmor:unconfined
+#     environment:
+#       # default=info, possible=(critical, error, warning, info, debug)
+#       - LOG_LEVEL=info
