@@ -1,3 +1,11 @@
+external_components:
+  - source:
+      type: git
+      url: https://github.com/KaufHA/common
+    components: [ ddp ]
+    refresh: always
+
+
 esphome:
   name: floorlamp-1
   friendly_name: "Floorlamp 1"
@@ -22,8 +30,7 @@ ota:
   - platform: esphome
 captive_portal:
 web_server:
-e131:
-  method: MULTICAST
+ddp:
 debug:
 
 uart:
@@ -119,8 +126,8 @@ light:
     restore_mode: RESTORE_DEFAULT_OFF
     effects:
       - random
-      - e131: 
-          universe: 1
-          channels: RGB
+      - addressable_ddp:
+          name: DDP
+          timeout: 2s
           
           

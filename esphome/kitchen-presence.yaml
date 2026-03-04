@@ -1,3 +1,10 @@
+external_components:
+  - source:
+      type: git
+      url: https://github.com/KaufHA/common
+    components: [ ddp ]
+    refresh: always
+
 esphome:
   name: kitchen-presence
   friendly_name: "Kitchen Presence"
@@ -19,19 +26,12 @@ wifi:
 
 logger:
   level: INFO
-
 api:
-
 ota:
   - platform: esphome
-
 captive_portal:
-
 web_server:
-
-e131:
-  method: MULTICAST
-  
+ddp:
 debug:
 
 # ========== SENSORS ==========
@@ -72,6 +72,6 @@ light:
     restore_mode: RESTORE_DEFAULT_OFF
     effects:
       - random
-      - e131: 
-          universe: 1
-          channels: RGB
+      - addressable_ddp:
+          name: DDP
+          timeout: 2s
