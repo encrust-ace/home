@@ -184,8 +184,8 @@ light:
   - platform: esp32_rmt_led_strip
     id: light_id
     rgb_order: GRB
-    pin: GPIO5
-    num_leds: 3
+    pin: GPIO1
+    num_leds: 22
     chipset: WS2812
     name: "Light"
     effects:
@@ -202,7 +202,7 @@ light:
 # ========== AUDIO HARDWARE (I2S) ==========
 i2s_audio:
   - id: i2s_mic_bus
-    i2s_lrclk_pin: GPIO1
+    i2s_lrclk_pin: GPIO5
     i2s_bclk_pin: GPIO2
 
 microphone:
