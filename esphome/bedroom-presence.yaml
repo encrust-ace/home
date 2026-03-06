@@ -3,7 +3,7 @@ esphome:
   friendly_name: "Bedroom Presence"
 
 esp32:
-  board: esp32-s3-devkitc-1
+  variant: esp32s3
   framework:
     type: esp-idf  # Best for S3-Zero hardware peripherals
 

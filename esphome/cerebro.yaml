@@ -9,12 +9,12 @@ esphome:
         - light.turn_on:
             id: light_id
             brightness: 100%
-            effect: rainbow
+            effect: "Rainbow Spin"
         - delay: 3s
         - script.execute: restore_light_state
 
 esp32:
-  board: esp32-s3-devkitc-1
+  variant: esp32s3
   framework:
     type: esp-idf
     sdkconfig_options:
@@ -158,7 +158,7 @@ switch:
           green: 0%
           blue: 0%
           brightness: 100%
-          effect: fast pulse
+          effect: "Fast Pulse"
       - delay: 2s
       - light.turn_on:
           id: light_id
@@ -174,7 +174,7 @@ switch:
           green: 100%
           blue: 0%
           brightness: 100%
-          effect: fast pulse
+          effect: "Fast Pulse"
       - delay: 2s
       - script.execute: restore_light_state
       - micro_wake_word.start:
@@ -189,14 +189,30 @@ light:
     chipset: WS2812
     name: "Light"
     effects:
+      # Used for Errors and Mute toggles
       - pulse:
           name: "Fast Pulse"
-          transition_length: 0.5s
-          update_interval: 0.5s
+          transition_length: 0.3s
+          update_interval: 0.3s
           min_brightness: 0%
           max_brightness: 100%
+          
+      # Used for Listening (Back-and-forth "Cylon" scan)
+      - addressable_scan:
+          name: "Listening Scan"
+          move_interval: 50ms
+          scan_width: 3
+          
+      # Used for Processing/Thinking (Sparkling LEDs)
+      - addressable_twinkle:
+          name: "Thinking Twinkle"
+          twinkle_probability: 10%
+          progress_interval: 50ms
+          
+      # Used for Bootup
       - addressable_rainbow:
-          width: 10
+          name: "Rainbow Spin"
+          width: 22
           speed: 15
 
 # ========== AUDIO HARDWARE (I2S) ==========
@@ -222,14 +238,15 @@ micro_wake_word:
       - light.turn_on:
           id: light_id
           red: 0%
-          green: 0%
-          blue: 100%
+          green: 50%
+          blue: 100% # Cyan/Blue mix
           brightness: 100%
-          effect: none
+          effect: "Listening Scan"
       - voice_assistant.start:
           wake_word: !lambda return wake_word;
   models:
     - model: hey_jarvis
+    - model: okay_nabu
 
 # ========== VOICE ASSISTANT ==========
 voice_assistant:
@@ -244,21 +261,29 @@ voice_assistant:
       - light.turn_on:
           id: light_id
           red: 0%
-          green: 0%
+          green: 50%
           blue: 100%
           brightness: 100%
-          effect: none
+          effect: "Listening Scan"
 
   on_intent_start:
     then:
       - light.turn_on:
           id: light_id
+          red: 50%
+          green: 0%
+          blue: 100% # Purple mix for thinking
           brightness: 100%
-          effect: rainbow
+          effect: "Thinking Twinkle"
 
   on_intent_end:
     then:
       - light.turn_off: light_id
+
+  # No speaker present — force pipeline to complete so it doesn't hang in Responding
+  on_tts_end:
+    then:
+      - voice_assistant.stop:
 
   on_error:
     then:
@@ -268,7 +293,7 @@ voice_assistant:
           green: 0%
           blue: 0%
           brightness: 100%
-          effect: fast pulse
+          effect: "Fast Pulse"
       - delay: 1s
       - script.execute: restore_light_state
       - if:

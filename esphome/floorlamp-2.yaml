@@ -10,7 +10,7 @@ esphome:
   friendly_name: "Floorlamp 2"
 
 esp32:
-  board: esp32-c3-devkitm-1
+  variant: esp32c3
   framework: 
     type: esp-idf
 
@@ -127,7 +127,7 @@ light:
     name: "Light"
     restore_mode: RESTORE_DEFAULT_OFF
     effects:
-      - random:
+      - addressable_rainbow:
       - addressable_ddp:
           name: DDP
           timeout: 2s
