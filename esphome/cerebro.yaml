@@ -6,8 +6,8 @@ external_components:
     refresh: always
 
 esphome:
-  name: kitchen-presence
-  friendly_name: "Kitchen Presence"
+  name: cerebro
+  friendly_name: "Cerebro"
 
 esp32:
   board: esp32-s3-devkitc-1
@@ -21,7 +21,7 @@ wifi:
   reboot_timeout: 
     minutes: 2
   ap:
-    ssid: "Kitchen Presence"
+    ssid: "Cerebro"
     password: "12345678"
 
 logger:
