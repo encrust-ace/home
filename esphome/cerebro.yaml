@@ -1,41 +1,127 @@
-external_components:
-  - source:
-      type: git
-      url: https://github.com/KaufHA/common
-    components: [ ddp ]
-    refresh: always
-
 esphome:
   name: cerebro
   friendly_name: "Cerebro"
+  platformio_options:
+    board_build.flash_mode: dio
+  on_boot:
+    - priority: -100
+      then:
+        - light.turn_on:
+            id: light_id
+            brightness: 100%
+            effect: rainbow
+        - delay: 3s
+        - script.execute: restore_light_state
 
 esp32:
   board: esp32-s3-devkitc-1
   framework:
-    type: esp-idf  # Best for S3-Zero hardware peripherals
+    type: esp-idf
+    sdkconfig_options:
+      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
+      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
+      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
+      CONFIG_AUDIO_BOARD_CUSTOM: "y"
+      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "20"
+
+psram:
+  mode: quad
+  speed: 80MHz
+
+logger:
+  hardware_uart: UART0
+  level: INFO
+
+# ========== GLOBALS ==========
+globals:
+  - id: state_saved
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: saved_state
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+  - id: saved_red
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: saved_green
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+  - id: saved_blue
+    type: float
+    restore_value: no
+    initial_value: '0.0'
+
+# ========== SCRIPTS ==========
+script:
+  # Captures current light state — only saves once until restored
+  - id: save_light_state
+    then:
+      - if:
+          condition:
+            lambda: 'return !id(state_saved);'
+          then:
+            - lambda: |-
+                auto values = id(light_id)->remote_values;
+                id(saved_state) = values.is_on();
+                id(saved_red)   = values.get_red();
+                id(saved_green) = values.get_green();
+                id(saved_blue)  = values.get_blue();
+                id(state_saved) = true;
+
+  # Restores light to saved state, then clears the save slot
+  - id: restore_light_state
+    then:
+      - if:
+          condition:
+            lambda: 'return id(saved_state);'
+          then:
+            - light.turn_on:
+                id: light_id
+                red: !lambda 'return id(saved_red);'
+                green: !lambda 'return id(saved_green);'
+                blue: !lambda 'return id(saved_blue);'
+                brightness: 100%
+                effect: none
+          else:
+            - light.turn_off: light_id
+      - lambda: 'id(state_saved) = false;'
+
+# ========== API ==========
+api:
+  on_client_connected:
+    then:
+      - delay: 50ms
+      - script.execute: restore_light_state
+      - if:
+          condition:
+            switch.is_off: mute
+          then:
+            - micro_wake_word.start:
+  on_client_disconnected:
+    then:
+      - voice_assistant.stop:
+      - micro_wake_word.stop:
+
+ota:
+  - platform: esphome
 
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
-  min_auth_mode: WPA2
-  reboot_timeout: 
-    minutes: 2
+  power_save_mode: NONE
   ap:
     ssid: "Cerebro"
     password: "12345678"
 
-logger:
-  level: INFO
-api:
-ota:
-  - platform: esphome
 captive_portal:
 web_server:
-ddp:
-debug:
+improv_serial:
 
 # ========== SENSORS ==========
-
 sensor:
   - platform: wifi_signal
     name: "WiFi Signal (dBm)"
@@ -48,10 +134,6 @@ sensor:
     unit_of_measurement: "s"
     entity_category: "diagnostic"
 
-  - platform: debug
-    free:
-      name: "Heap Free"
-
 text_sensor:
   - platform: wifi_info
     ssid:
@@ -59,19 +141,154 @@ text_sensor:
       icon: "mdi:wifi"
       entity_category: "diagnostic"
 
-# ========== LIGHTS ==========
+# ========== SWITCH (MUTE) ==========
+switch:
+  - platform: template
+    id: mute
+    name: Mute
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+    on_turn_on:
+      - script.execute: save_light_state
+      - micro_wake_word.stop:
+      - voice_assistant.stop:
+      - light.turn_on:
+          id: light_id
+          red: 100%
+          green: 0%
+          blue: 0%
+          brightness: 100%
+          effect: fast pulse
+      - delay: 2s
+      - light.turn_on:
+          id: light_id
+          red: 100%
+          green: 0%
+          blue: 0%
+          brightness: 100%
+          effect: none
+    on_turn_off:
+      - light.turn_on:
+          id: light_id
+          red: 0%
+          green: 100%
+          blue: 0%
+          brightness: 100%
+          effect: fast pulse
+      - delay: 2s
+      - script.execute: restore_light_state
+      - micro_wake_word.start:
 
+# ========== LIGHT ==========
 light:
   - platform: esp32_rmt_led_strip
-    id: strip_light
-    name: "Light"
-    pin: GPIO1
-    num_leds: 22
-    chipset: WS2811
+    id: light_id
     rgb_order: GRB
-    restore_mode: RESTORE_DEFAULT_OFF
+    pin: GPIO5
+    num_leds: 3
+    chipset: WS2812
+    name: "Light"
     effects:
-      - random
-      - addressable_ddp:
-          name: DDP
-          timeout: 2s
+      - pulse:
+          name: "Fast Pulse"
+          transition_length: 0.5s
+          update_interval: 0.5s
+          min_brightness: 0%
+          max_brightness: 100%
+      - addressable_rainbow:
+          width: 10
+          speed: 15
+
+# ========== AUDIO HARDWARE (I2S) ==========
+i2s_audio:
+  - id: i2s_mic_bus
+    i2s_lrclk_pin: GPIO1
+    i2s_bclk_pin: GPIO2
+
+microphone:
+  - platform: i2s_audio
+    id: microphone_id
+    adc_type: external
+    i2s_din_pin: GPIO4
+    i2s_audio_id: i2s_mic_bus
+    channel: left
+
+# ========== WAKE WORD ==========
+micro_wake_word:
+  on_wake_word_detected:
+    then:
+      - script.execute: save_light_state
+      - micro_wake_word.stop:
+      - light.turn_on:
+          id: light_id
+          red: 0%
+          green: 0%
+          blue: 100%
+          brightness: 100%
+          effect: none
+      - voice_assistant.start:
+          wake_word: !lambda return wake_word;
+  models:
+    - model: hey_jarvis
+
+# ========== VOICE ASSISTANT ==========
+voice_assistant:
+  id: voice_assistant_id
+  microphone: microphone_id
+  noise_suppression_level: 2
+  auto_gain: 31dBFS
+  volume_multiplier: 4.0
+
+  on_listening:
+    then:
+      - light.turn_on:
+          id: light_id
+          red: 0%
+          green: 0%
+          blue: 100%
+          brightness: 100%
+          effect: none
+
+  on_intent_start:
+    then:
+      - light.turn_on:
+          id: light_id
+          brightness: 100%
+          effect: rainbow
+
+  on_intent_end:
+    then:
+      - light.turn_off: light_id
+
+  on_error:
+    then:
+      - light.turn_on:
+          id: light_id
+          red: 100%
+          green: 0%
+          blue: 0%
+          brightness: 100%
+          effect: fast pulse
+      - delay: 1s
+      - script.execute: restore_light_state
+      - if:
+          condition:
+            switch.is_off: mute
+          then:
+            - micro_wake_word.start:
+
+  on_end:
+    then:
+      - wait_until:
+          not:
+            voice_assistant.is_running:
+      - if:
+          condition:
+            switch.is_off: mute
+          then:
+            - micro_wake_word.start:
+
+  # Single restore point — always the final resting state
+  on_idle:
+    then:
+      - script.execute: restore_light_state
