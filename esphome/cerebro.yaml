@@ -1,125 +1,37 @@
+external_components:
+  - source:
+      type: git
+      url: https://github.com/KaufHA/common
+    components: [ ddp ]
+    refresh: always
+
 esphome:
   name: cerebro
   friendly_name: "Cerebro"
-  platformio_options:
-    board_build.flash_mode: dio
-  on_boot:
-    - priority: -100
-      then:
-        - light.turn_on:
-            id: light_id
-            brightness: 100%
-            effect: "Rainbow Spin"
-        - delay: 3s
-        - script.execute: restore_light_state
 
-esp32:
-  variant: esp32s3
-  framework:
-    type: esp-idf
-    sdkconfig_options:
-      CONFIG_ESP32S3_DEFAULT_CPU_FREQ_240: "y"
-      CONFIG_ESP32S3_DATA_CACHE_64KB: "y"
-      CONFIG_ESP32S3_DATA_CACHE_LINE_64B: "y"
-      CONFIG_AUDIO_BOARD_CUSTOM: "y"
-      CONFIG_ESP_TASK_WDT_TIMEOUT_S: "20"
-
-psram:
-  mode: quad
-  speed: 80MHz
-
-logger:
-  hardware_uart: UART0
-  level: INFO
-
-# ========== GLOBALS ==========
-globals:
-  - id: state_saved
-    type: bool
-    restore_value: no
-    initial_value: 'false'
-  - id: saved_state
-    type: bool
-    restore_value: no
-    initial_value: 'false'
-  - id: saved_red
-    type: float
-    restore_value: no
-    initial_value: '0.0'
-  - id: saved_green
-    type: float
-    restore_value: no
-    initial_value: '0.0'
-  - id: saved_blue
-    type: float
-    restore_value: no
-    initial_value: '0.0'
-
-# ========== SCRIPTS ==========
-script:
-  # Captures current light state — only saves once until restored
-  - id: save_light_state
-    then:
-      - if:
-          condition:
-            lambda: 'return !id(state_saved);'
-          then:
-            - lambda: |-
-                auto values = id(light_id)->remote_values;
-                id(saved_state) = values.is_on();
-                id(saved_red)   = values.get_red();
-                id(saved_green) = values.get_green();
-                id(saved_blue)  = values.get_blue();
-                id(state_saved) = true;
-
-  # Restores light to saved state, then clears the save slot
-  - id: restore_light_state
-    then:
-      - if:
-          condition:
-            lambda: 'return id(saved_state);'
-          then:
-            - light.turn_on:
-                id: light_id
-                red: !lambda 'return id(saved_red);'
-                green: !lambda 'return id(saved_green);'
-                blue: !lambda 'return id(saved_blue);'
-                brightness: 100%
-                effect: none
-          else:
-            - light.turn_off: light_id
-      - lambda: 'id(state_saved) = false;'
-
-# ========== API ==========
-api:
-  on_client_connected:
-    then:
-      - delay: 50ms
-      - script.execute: restore_light_state
-      - if:
-          condition:
-            switch.is_off: mute
-          then:
-            - micro_wake_word.start:
-  on_client_disconnected:
-    then:
-      - voice_assistant.stop:
-      - micro_wake_word.stop:
-
-ota:
-  - platform: esphome
+esp8266:
+  board: nodemcuv2
+  restore_from_flash: true
+  early_pin_init: false
 
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+  min_auth_mode: WPA2
   power_save_mode: NONE
   ap:
     ssid: "Cerebro"
     password: "12345678"
 
+logger:
+  level: INFO
+api:
+ota:
+  - platform: esphome
 captive_portal:
 web_server:
-improv_serial:
+ddp:
+debug:
 
 # ========== SENSORS ==========
 sensor:
@@ -134,6 +46,10 @@ sensor:
     unit_of_measurement: "s"
     entity_category: "diagnostic"
 
+  - platform: debug
+    free:
+      name: "Heap Free"
+
 text_sensor:
   - platform: wifi_info
     ssid:
@@ -141,179 +57,18 @@ text_sensor:
       icon: "mdi:wifi"
       entity_category: "diagnostic"
 
-# ========== SWITCH (MUTE) ==========
-switch:
-  - platform: template
-    id: mute
-    name: Mute
-    optimistic: true
-    restore_mode: RESTORE_DEFAULT_OFF
-    on_turn_on:
-      - script.execute: save_light_state
-      - micro_wake_word.stop:
-      - voice_assistant.stop:
-      - light.turn_on:
-          id: light_id
-          red: 100%
-          green: 0%
-          blue: 0%
-          brightness: 100%
-          effect: "Fast Pulse"
-      - delay: 2s
-      - light.turn_on:
-          id: light_id
-          red: 100%
-          green: 0%
-          blue: 0%
-          brightness: 100%
-          effect: none
-    on_turn_off:
-      - light.turn_on:
-          id: light_id
-          red: 0%
-          green: 100%
-          blue: 0%
-          brightness: 100%
-          effect: "Fast Pulse"
-      - delay: 2s
-      - script.execute: restore_light_state
-      - micro_wake_word.start:
-
 # ========== LIGHT ==========
 light:
-  - platform: esp32_rmt_led_strip
+  - platform: neopixelbus
     id: light_id
-    rgb_order: GRB
-    pin: GPIO1
+    type: GRB
+    pin: GPIO2
     num_leds: 22
-    chipset: WS2812
+    variant: ws2812x
     name: "Light"
+    restore_mode: RESTORE_DEFAULT_OFF
     effects:
-      # Used for Errors and Mute toggles
-      - pulse:
-          name: "Fast Pulse"
-          transition_length: 0.3s
-          update_interval: 0.3s
-          min_brightness: 0%
-          max_brightness: 100%
-          
-      # Used for Listening (Back-and-forth "Cylon" scan)
-      - addressable_scan:
-          name: "Listening Scan"
-          move_interval: 50ms
-          scan_width: 3
-          
-      # Used for Processing/Thinking (Sparkling LEDs)
-      - addressable_twinkle:
-          name: "Thinking Twinkle"
-          twinkle_probability: 10%
-          progress_interval: 50ms
-          
-      # Used for Bootup
-      - addressable_rainbow:
-          name: "Rainbow Spin"
-          width: 22
-          speed: 15
-
-# ========== AUDIO HARDWARE (I2S) ==========
-i2s_audio:
-  - id: i2s_mic_bus
-    i2s_lrclk_pin: GPIO5
-    i2s_bclk_pin: GPIO2
-
-microphone:
-  - platform: i2s_audio
-    id: microphone_id
-    adc_type: external
-    i2s_din_pin: GPIO4
-    i2s_audio_id: i2s_mic_bus
-    channel: left
-
-# ========== WAKE WORD ==========
-micro_wake_word:
-  on_wake_word_detected:
-    then:
-      - script.execute: save_light_state
-      - micro_wake_word.stop:
-      - light.turn_on:
-          id: light_id
-          red: 0%
-          green: 50%
-          blue: 100% # Cyan/Blue mix
-          brightness: 100%
-          effect: "Listening Scan"
-      - voice_assistant.start:
-          wake_word: !lambda return wake_word;
-  models:
-    - model: hey_jarvis
-    - model: okay_nabu
-
-# ========== VOICE ASSISTANT ==========
-voice_assistant:
-  id: voice_assistant_id
-  microphone: microphone_id
-  noise_suppression_level: 2
-  auto_gain: 31dBFS
-  volume_multiplier: 4.0
-
-  on_listening:
-    then:
-      - light.turn_on:
-          id: light_id
-          red: 0%
-          green: 50%
-          blue: 100%
-          brightness: 100%
-          effect: "Listening Scan"
-
-  on_intent_start:
-    then:
-      - light.turn_on:
-          id: light_id
-          red: 50%
-          green: 0%
-          blue: 100% # Purple mix for thinking
-          brightness: 100%
-          effect: "Thinking Twinkle"
-
-  on_intent_end:
-    then:
-      - light.turn_off: light_id
-
-  # No speaker present — force pipeline to complete so it doesn't hang in Responding
-  on_tts_end:
-    then:
-      - voice_assistant.stop:
-
-  on_error:
-    then:
-      - light.turn_on:
-          id: light_id
-          red: 100%
-          green: 0%
-          blue: 0%
-          brightness: 100%
-          effect: "Fast Pulse"
-      - delay: 1s
-      - script.execute: restore_light_state
-      - if:
-          condition:
-            switch.is_off: mute
-          then:
-            - micro_wake_word.start:
-
-  on_end:
-    then:
-      - wait_until:
-          not:
-            voice_assistant.is_running:
-      - if:
-          condition:
-            switch.is_off: mute
-          then:
-            - micro_wake_word.start:
-
-  # Single restore point — always the final resting state
-  on_idle:
-    then:
-      - script.execute: restore_light_state
+      - random:
+      - addressable_ddp:
+          name: DDP
+          timeout: 2s
