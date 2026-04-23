@@ -104,10 +104,6 @@ number:
       name: "Still Threshold Value"
     move_threshold:
       name: "Move Threshold Value"
-    gate_move_sensitivity:
-      name: "Calibration Move Sensitivity Factor"
-    gate_still_sensitivity: 
-      name: "Calibration Still Sensitivity Factor"
 
 button:
   - platform: ld2420

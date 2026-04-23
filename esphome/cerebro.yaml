@@ -27,7 +27,6 @@ logger:
   level: INFO
 api:
 ota:
-  - platform: esphome
 captive_portal:
 web_server:
 ddp:
